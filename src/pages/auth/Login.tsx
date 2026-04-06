@@ -8,6 +8,7 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,93 +18,240 @@ export default function Login() {
     setLoading(true);
     try {
       const { userId, phone } = await login(email, password);
-      navigate('/verify-otp', {
-        state: { userId, phone, purpose: 'login' }
-      });
+      navigate('/verify-otp', { state: { userId, phone, purpose: 'login' } });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      setError(err.response?.data?.error || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex flex-col justify-center px-6 py-12">
-      
-      {/* Logo */}
-      <div className="flex flex-col items-center mb-8">
-        <div className="w-16 h-16 bg-brand-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg">
-          <span className="text-white text-2xl font-bold">S</span>
+    <div style={{
+      minHeight: '100dvh',
+      background: 'var(--bg)',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      {/* Top gradient bar */}
+      <div style={{
+        height: '3px',
+        background: 'linear-gradient(90deg, #0d9488, #0369a1, #7c3aed)',
+        flexShrink: 0,
+      }} />
+
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        padding: '40px 20px',
+        maxWidth: '400px',
+        margin: '0 auto',
+        width: '100%',
+      }}>
+
+        {/* Logo */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '36px' }}>
+          <div style={{
+            width: '64px', height: '64px',
+            background: 'linear-gradient(135deg, #0d9488 0%, #0369a1 100%)',
+            borderRadius: '18px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 32px rgba(13,148,136,0.3)',
+            marginBottom: '16px',
+          }}>
+            <span style={{ color: 'white', fontSize: '26px', fontWeight: '800', letterSpacing: '-1px' }}>S</span>
+          </div>
+          <h1 style={{
+            color: 'var(--text-primary)',
+            fontSize: '24px',
+            fontWeight: '800',
+            letterSpacing: '-0.5px',
+            margin: 0,
+          }}>SaviDoc</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
+            Clinical Knowledge & Training
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-gray-800">SaviDoc</h1>
-        <p className="text-sm text-gray-500 mt-1">Clinical Knowledge & Training</p>
-      </div>
 
-      {/* Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full max-w-sm mx-auto">
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">Welcome back</h2>
-        <p className="text-sm text-gray-500 mb-6">Sign in to your account</p>
+        {/* Card */}
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '20px',
+          padding: '28px',
+          boxShadow: 'var(--shadow-md)',
+        }}>
+          <h2 style={{
+            color: 'var(--text-primary)',
+            fontSize: '18px',
+            fontWeight: '700',
+            marginBottom: '4px',
+            letterSpacing: '-0.3px',
+          }}>Welcome back</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>
+            Sign in to continue to your workspace
+          </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="you@hospital.com"
-              required
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-            />
-          </div>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-            />
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-              {error}
+            {/* Email */}
+            <div>
+              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
+                Email address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@hospital.com"
+                required
+                autoComplete="email"
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  fontSize: '15px',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  minHeight: '48px',
+                  fontFamily: 'inherit',
+                  transition: 'border-color 0.15s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
+            {/* Password */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600' }}>
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '500', textDecoration: 'none' }}
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-card)',
+                    border: '1.5px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '12px 48px 12px 16px',
+                    fontSize: '15px',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    minHeight: '48px',
+                    fontFamily: 'inherit',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(s => !s)}
+                  style={{
+                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px',
+                    color: 'var(--text-muted)', padding: '4px',
+                  }}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
 
-        <div className="mt-4 text-center">
-          <Link
-            to="/forgot-password"
-            className="text-sm text-brand-500 hover:text-brand-600"
-          >
-            Forgot password?
-          </Link>
+            {/* Error */}
+            {error && (
+              <div style={{
+                background: 'var(--danger-light)',
+                border: '1px solid var(--danger)',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: '500',
+                color: 'var(--danger)',
+              }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                background: loading ? 'var(--accent-dark)' : 'var(--accent)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '14px',
+                padding: '14px',
+                fontSize: '15px',
+                fontWeight: '700',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.8 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                minHeight: '52px',
+                fontFamily: 'inherit',
+                transition: 'opacity 0.15s, transform 0.1s',
+                marginTop: '4px',
+              }}
+              onMouseDown={e => !loading && ((e.target as HTMLElement).style.transform = 'scale(0.98)')}
+              onMouseUp={e => ((e.target as HTMLElement).style.transform = 'scale(1)')}
+            >
+              {loading ? (
+                <>
+                  <svg style={{ width: 18, height: 18, animation: 'spin 0.8s linear infinite' }} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  Signing in...
+                </>
+              ) : 'Sign in →'}
+            </button>
+
+          </form>
         </div>
+
+        {/* Register link */}
+        <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)', marginTop: '24px' }}>
+          Don't have an account?{' '}
+          <Link to="/register" style={{ color: 'var(--accent)', fontWeight: '600', textDecoration: 'none' }}>
+            Create account
+          </Link>
+        </p>
+
+        <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginTop: '32px' }}>
+          Secured with 2FA · Powered by Aurora RAG
+        </p>
       </div>
 
-      <p className="text-center text-sm text-gray-500 mt-6">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-brand-500 font-medium hover:text-brand-600">
-          Register
-        </Link>
-      </p>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        input::placeholder { color: var(--text-muted); }
+      `}</style>
     </div>
   );
 }

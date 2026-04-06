@@ -53,13 +53,18 @@ export { apiClient, TENANT_ID, API_BASE };
 
 export const authApi = {
   register: (data: {
-    name: string;
+    title?: string;
+    firstName: string;
+    lastName: string;
     email: string;
     phone: string;
     password: string;
     role: string;
+    roleTitle: string;
     departmentId?: string;
     allowedDomains?: string[];
+    industry?: string;
+    industryType?: string;
   }) => apiClient.post('/api/v1/auth/register', { ...data, tenantId: TENANT_ID }),
 
   verifyOTP: (userId: string, otp: string, purpose: string) =>
@@ -80,6 +85,15 @@ export const authApi = {
     apiClient.post('/api/v1/auth/reset-password', { userId, newPassword }),
 
   me: () => apiClient.get('/api/v1/auth/me'),
+
+  checkFirstUser: () =>
+    axios.get(`${API_BASE}/api/v1/auth/check-first-user?tenantId=${TENANT_ID}`),
+
+  getIndustries: () =>
+    axios.get(`${API_BASE}/api/v1/auth/industries`),
+
+  getRoles: () =>
+    axios.get(`${API_BASE}/api/v1/tenant/roles?tenantId=${TENANT_ID}`),
 };
 
 // =============================================================================
@@ -88,7 +102,7 @@ export const authApi = {
 
 const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || 'sk_admin_98100d8e6eac52325365fcee7824020b73fc79213483149980e7eb649e877d1d';
 
-const queryClient = axios.create({
+export const queryClient = axios.create({
   baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json',
@@ -153,6 +167,16 @@ export const userApi = {
     if (departmentId) params.set('departmentId', departmentId);
     return queryClient.get(`/api/v1/tenant/frequently-asked?${params}`);
   },
+
+  getComments: (queryId: string) =>
+    queryClient.get(`/api/v1/queries/${queryId}/comments`),
+
+  addComment: (queryId: string, data: {
+    userId: string;
+    userName: string;
+    userRole: string;
+    comment: string;
+  }) => queryClient.post(`/api/v1/queries/${queryId}/comments`, data),
 };
 
 // =============================================================================

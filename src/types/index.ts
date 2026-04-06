@@ -4,13 +4,19 @@
 
 export interface User {
   id: string;
+  userId?: string;
   tenantId: string;
   name: string;
+  title?: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phone: string;
   role: 'admin' | 'sme' | 'staff' | 'trainee';
+  roleTitle?: string;
   departmentId: string | null;
   allowedDomains: string[];
+  industryType?: string;
   lastLogin?: string;
   createdAt?: string;
 }

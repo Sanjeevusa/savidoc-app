@@ -16,13 +16,18 @@ interface AuthContextType extends AuthState {
 }
 
 interface RegisterData {
-  name: string;
+  title?: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   password: string;
   role: string;
+  roleTitle: string;
   departmentId?: string;
   allowedDomains?: string[];
+  industry?: string;
+  industryType?: string;
 }
 
 // =============================================================================
@@ -44,10 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem('accessToken');
     if (token) {
       try {
-        const decoded = jwtDecode<User & { exp: number }>(token);
+        const decoded = jwtDecode<User & { exp: number; userId?: string }>(token);
         if (decoded.exp * 1000 > Date.now()) {
+          const normalizedUser = { ...decoded, id: decoded.userId || decoded.id };
           setState({
-            user: decoded,
+            user: normalizedUser,
             accessToken: token,
             isAuthenticated: true,
             isLoading: false,
@@ -69,9 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyOTP = useCallback(async (userId: string, otp: string, purpose: string) => {
     const res = await authApi.verifyOTP(userId, otp, purpose);
     const { accessToken, user } = res.data.data;
+    // JWT returns userId, map to id for consistency
+    const normalizedUser = { ...user, id: user.userId || user.id };
     localStorage.setItem('accessToken', accessToken);
     setState({
-      user,
+      user: normalizedUser,
       accessToken,
       isAuthenticated: true,
       isLoading: false,

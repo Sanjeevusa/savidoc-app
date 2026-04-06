@@ -18,19 +18,18 @@ export default function OTPVerify() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    if (!state?.userId) {
-      navigate('/login');
-    }
+    if (!state?.userId) { navigate('/login'); return; }
     inputRefs.current[0]?.focus();
   }, []);
 
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+      return () => clearTimeout(t);
     }
   }, [resendCooldown]);
 
@@ -39,142 +38,183 @@ export default function OTPVerify() {
     const newOtp = [...otp];
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-    // Auto-submit when all 6 digits entered
-    if (value && index === 5 && newOtp.every(d => d !== '')) {
-      handleVerify(newOtp.join(''));
-    }
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
+    if (value && index === 5 && newOtp.every(d => d)) handleVerify(newOtp.join(''));
   }
 
   function handleKeyDown(index: number, e: React.KeyboardEvent) {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
+    if (e.key === 'Backspace' && !otp[index] && index > 0) inputRefs.current[index - 1]?.focus();
   }
 
   function handlePaste(e: React.ClipboardEvent) {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
-      setOtp(pasted.split(''));
-      handleVerify(pasted);
-    }
+    if (pasted.length === 6) { setOtp(pasted.split('')); handleVerify(pasted); }
   }
 
   async function handleVerify(code?: string) {
     const otpCode = code || otp.join('');
-    if (otpCode.length !== 6) {
-      setError('Please enter all 6 digits');
-      return;
-    }
-
-    setError('');
-    setLoading(true);
+    if (otpCode.length !== 6) { setError('Please enter all 6 digits'); return; }
+    setError(''); setLoading(true);
     try {
       await verifyOTP(state!.userId, otpCode, state!.purpose);
       navigate('/', { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid or expired OTP. Please try again.');
+      setError(err.response?.data?.error || 'Invalid or expired code. Please try again.');
       setOtp(['', '', '', '', '', '']);
-      inputRefs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
+      setTimeout(() => inputRefs.current[0]?.focus(), 50);
+    } finally { setLoading(false); }
   }
 
   async function handleResend() {
     if (resendCooldown > 0) return;
     try {
       await resendOTP(state!.userId, state!.purpose);
-      setResendCooldown(60);
-      setError('');
+      setResendCooldown(60); setResendSuccess(true); setError('');
       setOtp(['', '', '', '', '', '']);
-      inputRefs.current[0]?.focus();
-    } catch {
-      setError('Failed to resend OTP. Please try again.');
-    }
+      setTimeout(() => { setResendSuccess(false); inputRefs.current[0]?.focus(); }, 3000);
+    } catch { setError('Failed to resend code. Please try again.'); }
   }
 
-  const purposeLabel = {
-    verify_phone: 'Verify your phone',
-    login: '2-step verification',
-    reset_password: 'Reset your password',
-  }[state?.purpose || 'login'];
+  const purposeConfig = {
+    verify_phone:   { title: 'Verify your phone',   subtitle: 'We sent a 6-digit code to confirm your account' },
+    login:          { title: '2-step verification',  subtitle: "Enter the code we sent to confirm it's you" },
+    reset_password: { title: 'Reset your password', subtitle: 'Enter the code to proceed with password reset' },
+  };
 
+  const config = purposeConfig[state?.purpose || 'login'];
   const maskedPhone = state?.phone
     ? state.phone.slice(0, -4).replace(/\d/g, '•') + state.phone.slice(-4)
     : '';
 
+  const allFilled = otp.every(d => d !== '');
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex flex-col justify-center px-6 py-12">
+    <div style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: '3px', background: 'linear-gradient(90deg, #0d9488, #0369a1, #7c3aed)', flexShrink: 0 }} />
 
-      {/* Logo */}
-      <div className="flex flex-col items-center mb-8">
-        <div className="w-16 h-16 bg-brand-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg">
-          <span className="text-white text-2xl font-bold">S</span>
-        </div>
-      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '40px 20px', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
 
-      {/* Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full max-w-sm mx-auto text-center">
-        
-        <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl">📱</span>
-        </div>
-
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">{purposeLabel}</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Enter the 6-digit code sent to{' '}
-          <span className="font-medium text-gray-700">{maskedPhone}</span>
-        </p>
-
-        {/* OTP Input */}
-        <div className="flex gap-2 justify-center mb-6" onPaste={handlePaste}>
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              ref={el => { inputRefs.current[index] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={e => handleChange(index, e.target.value)}
-              onKeyDown={e => handleKeyDown(index, e)}
-              className={`w-11 h-12 text-center text-lg font-bold border-2 rounded-xl focus:outline-none transition-colors ${
-                digit
-                  ? 'border-brand-500 bg-brand-50 text-brand-700'
-                  : 'border-gray-200 text-gray-800 focus:border-brand-300'
-              }`}
-            />
-          ))}
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-4">
-            {error}
+        {/* Logo */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+          <div style={{ width: '56px', height: '56px', background: 'linear-gradient(135deg, #0d9488, #0369a1)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(13,148,136,0.25)' }}>
+            <span style={{ color: 'white', fontSize: '22px', fontWeight: '800' }}>S</span>
           </div>
-        )}
+        </div>
 
-        <button
-          onClick={() => handleVerify()}
-          disabled={loading || otp.some(d => !d)}
-          className="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-4"
-        >
-          {loading ? 'Verifying...' : 'Verify'}
-        </button>
+        {/* Card */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '20px', padding: '32px 28px', boxShadow: 'var(--shadow-md)', textAlign: 'center' }}>
 
-        <button
-          onClick={handleResend}
-          disabled={resendCooldown > 0}
-          className="text-sm text-brand-500 hover:text-brand-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-        >
-          {resendCooldown > 0
-            ? `Resend OTP in ${resendCooldown}s`
-            : "Didn't receive it? Resend"}
-        </button>
+          {/* Icon */}
+          <div style={{ width: '56px', height: '56px', background: 'var(--accent-light)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '24px' }}>
+            📱
+          </div>
+
+          <h2 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', marginBottom: '6px', letterSpacing: '-0.3px' }}>
+            {config.title}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '6px' }}>
+            {config.subtitle}
+          </p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '600', marginBottom: '28px' }}>
+            {maskedPhone}
+          </p>
+
+          {/* OTP inputs */}
+          <div
+            style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '24px' }}
+            onPaste={handlePaste}
+          >
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={el => { inputRefs.current[index] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={e => handleChange(index, e.target.value)}
+                onKeyDown={e => handleKeyDown(index, e)}
+                style={{
+                  width: '46px',
+                  height: '56px',
+                  textAlign: 'center',
+                  fontSize: '22px',
+                  fontWeight: '700',
+                  border: `2px solid ${digit ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: '12px',
+                  background: digit ? 'var(--accent-light)' : 'var(--bg-card)',
+                  color: digit ? 'var(--accent-dark)' : 'var(--text-primary)',
+                  outline: 'none',
+                  transition: 'all 0.15s',
+                  fontFamily: 'inherit',
+                }}
+                onFocus={e => { if (!digit) e.target.style.borderColor = 'var(--accent)'; }}
+                onBlur={e => { if (!digit) e.target.style.borderColor = 'var(--border)'; }}
+              />
+            ))}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{ background: 'var(--danger-light)', borderRadius: '12px', padding: '10px 16px', fontSize: '13px', fontWeight: '500', color: 'var(--danger)', marginBottom: '16px' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Resend success */}
+          {resendSuccess && (
+            <div style={{ background: 'var(--success-light)', borderRadius: '12px', padding: '10px 16px', fontSize: '13px', fontWeight: '500', color: 'var(--success)', marginBottom: '16px' }}>
+              ✅ New code sent to your phone
+            </div>
+          )}
+
+          {/* Verify button */}
+          <button
+            onClick={() => handleVerify()}
+            disabled={!allFilled || loading}
+            style={{
+              width: '100%', background: (!allFilled || loading) ? 'var(--bg-tertiary)' : 'var(--accent)',
+              color: (!allFilled || loading) ? 'var(--text-muted)' : 'white',
+              border: 'none', borderRadius: '14px', padding: '14px', fontSize: '15px', fontWeight: '700',
+              cursor: (!allFilled || loading) ? 'not-allowed' : 'pointer', minHeight: '52px',
+              fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              transition: 'all 0.15s',
+            }}
+          >
+            {loading ? (
+              <><svg style={{ width: 18, height: 18, animation: 'spin 0.8s linear infinite' }} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg> Verifying...</>
+            ) : 'Verify code →'}
+          </button>
+
+          {/* Resend */}
+          <div style={{ marginTop: '20px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '8px' }}>Didn't receive the code?</p>
+            <button
+              onClick={handleResend}
+              disabled={resendCooldown > 0}
+              style={{
+                background: 'none', border: 'none', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                color: resendCooldown > 0 ? 'var(--text-muted)' : 'var(--accent)',
+                fontSize: '14px', fontWeight: '600', fontFamily: 'inherit',
+              }}
+            >
+              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+            </button>
+          </div>
+        </div>
+
+        {/* Back */}
+        <p style={{ textAlign: 'center', marginTop: '24px' }}>
+          <button
+            onClick={() => navigate('/login')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '14px', fontWeight: '500', fontFamily: 'inherit' }}
+          >
+            ← Back to sign in
+          </button>
+        </p>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
