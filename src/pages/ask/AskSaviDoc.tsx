@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { queryApi, userApi } from '../../api/client';
+import { queryApi, userApi, queryClient } from '../../api/client';
 import type { QueryResponse, Submission, SavedQuery, FrequentQuery } from '../../types';
+
 
 // =============================================================================
 // Helpers
@@ -96,7 +97,7 @@ function SourceBadge({ source, approvedByName, validatedAt, confidence }: {
     <div style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         <span style={badge(config.bg, config.color)}>{config.label}</span>
-        {!isValidated && confidence && confidence < 0.7 && (
+        {!isValidated && isRAG && confidence && confidence < 0.7 && (
           <span style={badge('var(--warning-light)', 'var(--warning)')}>⚠️ Low confidence</span>
         )}
       </div>
@@ -145,20 +146,29 @@ function Citations({ citations }: { citations: Array<{ documentName?: string; pa
 // Answer Card
 // =============================================================================
 
-function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, isSMEOrAdmin, isSaving }: {
+function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, onTakeForReview, isSMEOrAdmin, isSaving }: {
   question: string;
   response: QueryResponse;
   onSave: () => void;
   onDismiss: () => void;
   onSendForReview: (answer: string, comment?: string) => void;
+  onTakeForReview: (answer: string) => void;
   isSMEOrAdmin: boolean;
   isSaving: boolean;
 }) {
   const isLLM = response.source === 'multi_llm' || response.source === 'public_llm';
   const isValidated = response.source === 'validated' || response.source === 'validated_cache';
-  const isLowConfidence = !isLLM && !isValidated && response.confidence && response.confidence < 0.7;
-  const [composedAnswer, setComposedAnswer] = useState('');
+  const isKB = response.source === 'rag' || response.source === 'knowledge_base' || response.source === 'rag_low_confidence';
+  const isLowConfidence = isKB && response.confidence && response.confidence < 0.7;
+
+  const [composedAnswer, setComposedAnswer] = useState(isLLM ? '' : response.answer || '');
   const [reviewComment, setReviewComment] = useState('');
+  const [showCompose, setShowCompose] = useState(false);
+
+  // For KB responses, pre-fill composed answer
+  useEffect(() => {
+    if (!isLLM) setComposedAnswer(response.answer || '');
+  }, [response.answer]);
 
   return (
     <div style={{ ...card, marginBottom: '12px' }}>
@@ -177,8 +187,8 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, is
           confidence={response.confidence}
         />
 
-        {/* LLM path */}
-        {isLLM ? (
+        {/* ── LLM path ─────────────────────────────────── */}
+        {isLLM && (
           <>
             {response.responses && response.responses.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
@@ -217,7 +227,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, is
                   width: '100%', background: 'var(--bg-secondary)', border: '1.5px solid var(--border)',
                   borderRadius: '12px', padding: '12px', fontSize: '14px', color: 'var(--text-primary)',
                   outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5',
-                  boxSizing: 'border-box',
+                  boxSizing: 'border-box', marginBottom: '8px',
                 }}
                 onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--accent)'}
                 onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--border)'}
@@ -227,35 +237,56 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, is
                 onChange={e => setReviewComment(e.target.value)}
                 rows={2}
                 placeholder="Add a note for the reviewer... (optional)"
-                style={{ width: '100%', background: 'var(--bg-secondary)', border: '1.5px solid var(--border)', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '8px' }}
+                style={{
+                  width: '100%', background: 'var(--bg-secondary)', border: '1.5px solid var(--border)',
+                  borderRadius: '10px', padding: '10px 12px', fontSize: '13px', color: 'var(--text-primary)',
+                  outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '8px',
+                }}
                 onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--accent)'}
                 onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--border)'}
               />
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => onSendForReview(composedAnswer, reviewComment)}
-                  disabled={!composedAnswer.trim()}
-                  style={{
-                    ...btn(true),
-                    flex: 1,
-                    background: composedAnswer.trim() ? 'var(--warning)' : 'var(--bg-tertiary)',
-                    color: composedAnswer.trim() ? 'white' : 'var(--text-muted)',
-                    cursor: composedAnswer.trim() ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  📤 Send for Expert Review
-                </button>
-                <button onClick={onDismiss} style={btn(false)}>
-                  Dismiss
-                </button>
+                {isSMEOrAdmin ? (
+                  <button
+                    onClick={() => onTakeForReview(composedAnswer)}
+                    disabled={!composedAnswer.trim()}
+                    style={{
+                      ...btn(true), flex: 1,
+                      background: composedAnswer.trim() ? 'var(--info)' : 'var(--bg-tertiary)',
+                      color: composedAnswer.trim() ? 'white' : 'var(--text-muted)',
+                      cursor: composedAnswer.trim() ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    📝 Take for Review
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onSendForReview(composedAnswer, reviewComment)}
+                    disabled={!composedAnswer.trim()}
+                    style={{
+                      ...btn(true), flex: 1,
+                      background: composedAnswer.trim() ? 'var(--warning)' : 'var(--bg-tertiary)',
+                      color: composedAnswer.trim() ? 'white' : 'var(--text-muted)',
+                      cursor: composedAnswer.trim() ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    📤 Send for Expert Review
+                  </button>
+                )}
+                <button onClick={onDismiss} style={btn(false)}>Dismiss</button>
               </div>
             </div>
           </>
-        ) : (
+        )}
+
+        {/* ── KB / RAG path ─────────────────────────────── */}
+        {isKB && (
           <>
             {isLowConfidence && (
               <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning)', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px' }}>
-                <p style={{ fontSize: '13px', color: 'var(--warning)', margin: 0 }}>⚠️ Low confidence — consider expert review</p>
+                <p style={{ fontSize: '13px', color: 'var(--warning)', margin: 0 }}>
+                  ⚠️ Low confidence match — this answer may be incomplete. Consider sending for expert review.
+                </p>
               </div>
             )}
 
@@ -263,22 +294,97 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, is
               style={{ fontSize: '15px', lineHeight: '1.7', color: 'var(--text-primary)' }}
               dangerouslySetInnerHTML={{ __html: formatAnswer(response.answer) }}
             />
-
             <Citations citations={response.citations} />
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              {isSMEOrAdmin && (
-                <button onClick={() => onSendForReview(response.answer)} style={{ ...btn(false), borderColor: 'var(--info)', color: 'var(--info)' }}>
-                  📝 Take for Review
+            {/* Send/Take for Review flow */}
+            {!showCompose ? (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                {isSMEOrAdmin ? (
+                  <button
+                    onClick={() => onTakeForReview(response.answer)}
+                    style={{ ...btn(false), borderColor: 'var(--info)', color: 'var(--info)' }}
+                  >
+                    📝 Take for Review
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowCompose(true)}
+                    style={{ ...btn(false), borderColor: 'var(--warning)', color: 'var(--warning)' }}
+                  >
+                    📤 Send for Review
+                  </button>
+                )}
+                <button onClick={onSave} disabled={isSaving} style={{ ...btn(true), opacity: isSaving ? 0.6 : 1 }}>
+                  {isSaving ? '...' : '🔖 Save'}
                 </button>
-              )}
+                <button onClick={onDismiss} style={btn(false)}>Dismiss</button>
+              </div>
+            ) : (
+              // Staff: show compose area pre-filled with KB answer
+              <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                  ✏️ Edit before submitting (optional)
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                  The KB answer is pre-filled. Edit if needed, then submit for expert review.
+                </p>
+                <textarea
+                  value={composedAnswer}
+                  onChange={e => setComposedAnswer(e.target.value)}
+                  rows={5}
+                  style={{
+                    width: '100%', background: 'var(--bg-secondary)', border: '1.5px solid var(--border)',
+                    borderRadius: '12px', padding: '12px', fontSize: '14px', color: 'var(--text-primary)',
+                    outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5',
+                    boxSizing: 'border-box', marginBottom: '8px',
+                  }}
+                  onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--accent)'}
+                  onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--border)'}
+                />
+                <textarea
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  rows={2}
+                  placeholder="Add a note for the reviewer... (optional)"
+                  style={{
+                    width: '100%', background: 'var(--bg-secondary)', border: '1.5px solid var(--border)',
+                    borderRadius: '10px', padding: '10px 12px', fontSize: '13px', color: 'var(--text-primary)',
+                    outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '8px',
+                  }}
+                  onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--accent)'}
+                  onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = 'var(--border)'}
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => onSendForReview(composedAnswer, reviewComment)}
+                    disabled={!composedAnswer.trim()}
+                    style={{
+                      ...btn(true), flex: 1,
+                      background: 'var(--warning)', color: 'white',
+                    }}
+                  >
+                    📤 Send for Expert Review
+                  </button>
+                  <button onClick={() => setShowCompose(false)} style={btn(false)}>← Back</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Validated path ────────────────────────────── */}
+        {isValidated && (
+          <>
+            <div
+              style={{ fontSize: '15px', lineHeight: '1.7', color: 'var(--text-primary)' }}
+              dangerouslySetInnerHTML={{ __html: formatAnswer(response.answer) }}
+            />
+            <Citations citations={response.citations} />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={onSave} disabled={isSaving} style={{ ...btn(true), opacity: isSaving ? 0.6 : 1 }}>
                 {isSaving ? '...' : '🔖 Save'}
               </button>
-              <button onClick={onDismiss} style={btn(false)}>
-                Dismiss
-              </button>
+              <button onClick={onDismiss} style={btn(false)}>Dismiss</button>
             </div>
           </>
         )}
@@ -286,6 +392,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, is
     </div>
   );
 }
+
 
 // =============================================================================
 // Submission Card
@@ -622,6 +729,7 @@ export default function AskSaviDoc() {
   const [loadingMyQueries, setLoadingMyQueries] = useState(false);
   const [loadingFAQ, setLoadingFAQ] = useState(false);
   const [toast, setToast] = useState('');
+  const [followups, setFollowups] = useState<string[]>([]);
 
   useEffect(() => {
     if (toast) {
@@ -661,6 +769,10 @@ export default function AskSaviDoc() {
       const data = res.data.data || res.data;
       console.log('response metadata:', data?.metadata);
       setResponse(data);
+      // Load followups for KB and validated responses
+      if (data.source !== 'multi_llm' && data.source !== 'public_llm') {
+        loadFollowups(q, data.answer);
+      }
     } catch (err) { console.error('Ask error:', err); }
     finally { setAsking(false); }
   }
@@ -707,11 +819,18 @@ export default function AskSaviDoc() {
     }
   }
 
-  function handleDismiss() { setResponse(null); setQuestion(''); }
+  function handleDismiss() { setResponse(null); setQuestion(''); setFollowups([]); }
 
   async function handleWithdraw(id: string) {
     if (!confirm('Withdraw this submission?')) return;
     try { await userApi.withdrawSubmission(id); await loadSubmissions(); } catch {}
+  }
+
+  async function loadFollowups(question: string, answer: string) {
+    try {
+      const res = await queryApi.generateFollowups(question, answer);
+      setFollowups(res.data.suggestions || []);
+    } catch { setFollowups([]); }
   }
 
   async function handleResubmit(id: string, answer: string, comment: string) {
@@ -734,6 +853,27 @@ export default function AskSaviDoc() {
   async function handleRemove(id: string) {
     if (!user?.id || !confirm('Remove from My Queries?')) return;
     try { await userApi.removeSavedQuery(user.id, id); await loadMyQueries(); } catch {}
+  }
+
+  async function handleTakeForReview(answer: string) {
+    if (!user || !response) return;
+    const queryId = response.metadata?.queryId || response.metadata?.matchedQueryId;
+    if (!queryId || !answer.trim()) return;
+    try {
+      await queryClient.post(`/api/v1/validation/${queryId}/take-for-review`, {
+        smeUserId: user.id,
+        smeName: user.name,
+        smeRole: user.roleTitle || user.role,
+        departmentId: user.departmentId,
+        existingAnswer: answer,
+      });
+      setToast('📝 Saved to your Validation Queue');
+      setResponse(null);
+      setQuestion('');
+    } catch (err) {
+      console.error('Take for review error:', err);
+      setToast('❌ Failed to save. Please try again.');
+    }
   }
 
   function prefillAndAsk(q: string) {
@@ -810,15 +950,56 @@ export default function AskSaviDoc() {
 
         {/* Answer */}
         {response && !asking && (
-          <AnswerCard
-            question={currentQuestion}
-            response={response}
-            onSave={handleSave}
-            onDismiss={handleDismiss}
-            onSendForReview={handleSendForReview}
-            isSMEOrAdmin={isSMEOrAdmin}
-            isSaving={isSaving}
-          />
+          <>
+            <AnswerCard
+              question={currentQuestion}
+              response={response}
+              onSave={handleSave}
+              onDismiss={handleDismiss}
+              onSendForReview={handleSendForReview}
+              onTakeForReview={handleTakeForReview}
+              isSMEOrAdmin={isSMEOrAdmin}
+              isSaving={isSaving}
+            />
+
+            {followups.length > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                  🔍 Follow-up questions
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {followups.map((fq, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setQuestion(fq);
+                        setFollowups([]);
+                        setResponse(null);
+                        textareaRef.current?.focus();
+                      }}
+                      style={{
+                        textAlign: 'left',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        padding: '10px 14px',
+                        fontSize: '13px',
+                        color: 'var(--accent)',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        lineHeight: '1.4',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'}
+                    >
+                      → {fq}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* My Submissions — hidden for SME/Admin */}
