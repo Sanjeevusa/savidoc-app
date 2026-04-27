@@ -2,18 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { queryApi, userApi, queryClient } from '../../api/client';
 import type { QueryResponse, Submission, SavedQuery, FrequentQuery } from '../../types';
-
+import ReactMarkdown from 'react-markdown';
 
 // =============================================================================
 // Helpers
 // =============================================================================
-
-function formatAnswer(text: string): string {
-  if (!text) return '';
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br/>');
-}
 
 function timeAgo(dateString: string): string {
   const diff = Date.now() - new Date(dateString).getTime();
@@ -115,28 +108,313 @@ function SourceBadge({ source, approvedByName, validatedAt, confidence }: {
 // Citation Badges
 // =============================================================================
 
-function Citations({ citations }: { citations: Array<{ documentName?: string; page?: number }> }) {
+function Citations({ citations }: { citations: Array<{ documentId?: string; documentName?: string; relevanceScore?: number }> }) {
   if (!citations?.length) return null;
-  const docMap = new Map<string, Set<number>>();
-  citations.forEach(c => {
+  const [modalDoc, setModalDoc] = useState<{ id: string; name: string } | null>(null);
+
+  const docGroups = new Map<string, { sourceNums: number[]; maxScore: number; documentId: string }>();
+  citations.forEach((c, i) => {
     const name = c.documentName || 'Document';
-    if (!docMap.has(name)) docMap.set(name, new Set());
-    if (c.page) docMap.get(name)!.add(c.page);
+    if (!docGroups.has(name)) docGroups.set(name, { sourceNums: [], maxScore: 0, documentId: c.documentId || '' });
+    const group = docGroups.get(name)!;
+    group.sourceNums.push(i + 1);
+    group.maxScore = Math.max(group.maxScore, c.relevanceScore || 0);
   });
+
+  const friendlyName = (filename: string) =>
+    filename.replace(/[-_]/g, ' ').replace(/\.(pdf|txt|docx|md)$/i, '')
+      .replace(/\b\w/g, c => c.toUpperCase()).slice(0, 55);
+
   return (
-    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sources</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-        {Array.from(docMap.entries()).map(([name, pages]) => {
-          const sortedPages = Array.from(pages).sort((a, b) => a - b);
-          const pageStr = sortedPages.length > 0 ? ` · pp. ${sortedPages.join(', ')}` : '';
-          const short = name.length > 40 ? name.slice(0, 37) + '…' : name;
-          return (
-            <span key={name} style={badge('var(--bg-secondary)', 'var(--text-secondary)')} title={name + pageStr}>
-              📄 {short}{pageStr}
-            </span>
-          );
-        })}
+    <>
+      {modalDoc && (
+        <DocumentSummaryModal
+          documentId={modalDoc.id}
+          documentName={modalDoc.name}
+          onClose={() => setModalDoc(null)}
+        />
+      )}
+      <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '2px solid var(--border)' }}>
+        <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          Referenced Sources
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {Array.from(docGroups.entries()).map(([name, { sourceNums, maxScore, documentId }]) => {
+            const score = Math.round(maxScore * 100);
+            const scoreColor = score >= 80 ? '#16a34a' : score >= 65 ? '#ca8a04' : '#6b7280';
+            return (
+              <div key={name} style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '8px 12px',
+                background: 'var(--bg-secondary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                  {sourceNums.slice(0, 5).map(n => (
+                    <span key={n} style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '18px', height: '18px',
+                      background: 'var(--accent)', color: 'white',
+                      borderRadius: '4px', fontSize: '9px', fontWeight: '800',
+                    }}>{n}</span>
+                  ))}
+                  {sourceNums.length > 5 && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '18px', height: '18px',
+                      background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
+                      borderRadius: '4px', fontSize: '9px', fontWeight: '700',
+                    }}>+{sourceNums.length - 5}</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setModalDoc({ id: documentId, name })}
+                  style={{
+                    fontSize: '12px', fontWeight: '600',
+                    color: 'var(--accent)', flex: 1,
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    textAlign: 'left', padding: 0, textDecoration: 'underline',
+                    textDecorationColor: 'transparent',
+                    transition: 'text-decoration-color 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--accent)')}
+                  onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
+                  title="Click to view document summary"
+                >
+                  📄 {friendlyName(name)}
+                </button>
+                <span style={{ fontSize: '10px', fontWeight: '700', color: scoreColor, flexShrink: 0 }}>
+                  {score}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// =============================================================================
+// Markdown Answer Renderer
+// =============================================================================
+
+const ANSWER_STYLES = `
+  .savidoc-answer { font-size: 14px; line-height: 1.75; color: var(--text-primary); }
+  .savidoc-answer h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+  .savidoc-answer h2 { font-size: 15px; font-weight: 700; color: var(--accent); margin: 20px 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .savidoc-answer h3 { font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 16px 0 6px 0; }
+  .savidoc-answer h4 { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin: 12px 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+  .savidoc-answer p { margin: 0 0 10px 0; }
+  .savidoc-answer ul { margin: 6px 0 12px 0; padding-left: 20px; list-style: disc; }
+  .savidoc-answer ol { margin: 6px 0 12px 0; padding-left: 20px; }
+  .savidoc-answer li { margin: 4px 0; line-height: 1.6; }
+  .savidoc-answer li + li { margin-top: 4px; }
+  .savidoc-answer strong { font-weight: 700; color: var(--text-primary); }
+  .savidoc-answer em { font-style: italic; color: var(--text-secondary); }
+  .savidoc-answer hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .savidoc-answer blockquote { border-left: 3px solid var(--accent); padding: 8px 12px; margin: 12px 0; background: var(--bg-secondary); border-radius: 0 8px 8px 0; color: var(--text-secondary); font-style: italic; }
+  .savidoc-answer code { font-family: monospace; font-size: 12px; background: var(--bg-secondary); padding: 1px 5px; border-radius: 4px; }
+  .savidoc-answer table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  .savidoc-answer th { background: var(--accent); color: white; padding: 8px 12px; text-align: left; font-weight: 700; }
+  .savidoc-answer td { padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .savidoc-answer tr:nth-child(even) td { background: var(--bg-secondary); }
+`;
+
+function MarkdownAnswer({ text }: { text: string }) {
+  return (
+    <>
+      <style>{ANSWER_STYLES}</style>
+      <div className="savidoc-answer">
+        <ReactMarkdown>{text}</ReactMarkdown>
+      </div>
+    </>
+  );
+}
+
+// =============================================================================
+// Document Summary Modal
+// =============================================================================
+
+function DocumentSummaryModal({ documentId, documentName, onClose }: {
+  documentId: string;
+  documentName: string;
+  onClose: () => void;
+}) {
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    queryClient.get(`/api/v1/documents/${documentId}/summary`)
+      .then((res: any) => {
+        setSummary(res.data.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Could not load document summary.');
+        setLoading(false);
+      });
+  }, [documentId]);
+
+  const s = summary?.summary;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '20px',
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--bg-card)',
+        borderRadius: '16px',
+        width: '100%', maxWidth: '580px',
+        maxHeight: '80vh', overflowY: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--accent)', borderRadius: '16px 16px 0 0',
+        }}>
+          <div>
+            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
+              Document Summary
+            </p>
+            <p style={{ fontSize: '14px', fontWeight: '700', color: 'white', margin: '2px 0 0 0' }}>
+              📄 {documentName.length > 45 ? documentName.slice(0, 42) + '…' : documentName}
+            </p>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px',
+            color: 'white', fontSize: '18px', cursor: 'pointer',
+            width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>×</button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: '20px' }}>
+          {loading && (
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}>
+              Loading summary…
+            </p>
+          )}
+          {error && (
+            <p style={{ color: '#ef4444', fontSize: '13px' }}>{error}</p>
+          )}
+          {s && !loading && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              {/* Purpose */}
+              {s.purpose && (
+                <div>
+                  <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Purpose</p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, lineHeight: '1.5' }}>{s.purpose}</p>
+                </div>
+              )}
+
+              {/* Summary */}
+              {s.summary && (
+                <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px', borderLeft: '3px solid var(--accent)' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, lineHeight: '1.6', fontStyle: 'italic' }}>{s.summary}</p>
+                </div>
+              )}
+
+              {/* Meta row */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {s.organisation && (
+                  <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', borderRadius: '999px', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    🏢 {s.organisation}
+                  </span>
+                )}
+                {s.version && (
+                  <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', borderRadius: '999px', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    v{s.version}
+                  </span>
+                )}
+                {s.documentType && (
+                  <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', borderRadius: '999px', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    {s.documentType}
+                  </span>
+                )}
+                {summary?.authorityLevel && (
+                  <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', borderRadius: '999px', fontSize: '11px', fontWeight: '600', color: 'var(--accent)' }}>
+                    Authority Level {summary.authorityLevel}
+                  </span>
+                )}
+              </div>
+
+              {/* Clinical domains */}
+              {s.clinicalDomains?.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', margin: '0 0 6px 0' }}>Domains Covered</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {s.clinicalDomains.map((d: string) => (
+                      <span key={d} style={{ padding: '3px 8px', background: 'var(--accent)', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Key topics */}
+              {s.keyTopics?.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', margin: '0 0 6px 0' }}>Key Topics</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {s.keyTopics.map((t: string) => (
+                      <div key={t} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        <span style={{ color: 'var(--accent)', fontWeight: '700' }}>→</span>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Target audience */}
+              {s.targetAudience && (
+                <div>
+                  <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', margin: '0 0 4px 0' }}>Target Audience</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>{s.targetAudience}</p>
+                </div>
+              )}
+
+              {/* Coverage notes */}
+              {s.coverageNotes && (
+                <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', border: '1px solid #fbbf24' }}>
+                  <p style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#92400e', margin: '0 0 4px 0' }}>⚠ Coverage Notes</p>
+                  <p style={{ fontSize: '12px', color: '#78350f', margin: 0, lineHeight: '1.5' }}>{s.coverageNotes}</p>
+                </div>
+              )}
+
+              {/* Extraction quality */}
+              {summary?.extractionQuality && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Extraction Quality:</span>
+                  <span style={{
+                    fontSize: '11px', fontWeight: '700',
+                    color: summary.extractionQuality.rating === 'excellent' ? '#16a34a'
+                      : summary.extractionQuality.rating === 'good' ? '#16a34a'
+                      : summary.extractionQuality.rating === 'moderate' ? '#ca8a04' : '#ef4444'
+                  }}>
+                    {summary.extractionQuality.rating?.toUpperCase()}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    ({summary.totalChunks} chunks · {summary.totalPages} pages)
+                  </span>
+                </div>
+              )}
+
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -202,10 +480,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
                       {r.model && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.model}</span>}
                       <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>▼ expand</span>
                     </summary>
-                    <div
-                      style={{ padding: '0 14px 12px', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-secondary)', borderTop: '1px solid var(--border)' }}
-                      dangerouslySetInnerHTML={{ __html: formatAnswer(r.answer) }}
-                    />
+                    <MarkdownAnswer text={response.answer} />
                   </details>
                 ))}
               </div>
@@ -290,10 +565,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
               </div>
             )}
 
-            <div
-              style={{ fontSize: '15px', lineHeight: '1.7', color: 'var(--text-primary)' }}
-              dangerouslySetInnerHTML={{ __html: formatAnswer(response.answer) }}
-            />
+            <MarkdownAnswer text={response.answer} />
             <Citations citations={response.citations} />
 
             {/* Send/Take for Review flow */}
@@ -375,10 +647,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
         {/* ── Validated path ────────────────────────────── */}
         {isValidated && (
           <>
-            <div
-              style={{ fontSize: '15px', lineHeight: '1.7', color: 'var(--text-primary)' }}
-              dangerouslySetInnerHTML={{ __html: formatAnswer(response.answer) }}
-            />
+            <MarkdownAnswer text={response.answer} />
             <Citations citations={response.citations} />
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={onSave} disabled={isSaving} style={{ ...btn(true), opacity: isSaving ? 0.6 : 1 }}>
@@ -637,10 +906,7 @@ function KBCard({ item, canRemove, onRemove, onAskAgain }: {
             </div>
           )}
 
-          <div
-            style={{ fontSize: '14px', lineHeight: '1.7', color: 'var(--text-primary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px' }}
-            dangerouslySetInnerHTML={{ __html: formatAnswer(item.answer) }}
-          />
+          <MarkdownAnswer text={response.answer} />
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
             <button onClick={() => onAskAgain(item.question)} style={{ ...btn(false), borderColor: 'var(--accent)', color: 'var(--accent)' }}>

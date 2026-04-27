@@ -187,3 +187,12 @@ export const metaApi = {
   getDepartments: () => queryClient.get('/api/v1/departments'),
   getDomains: () => queryClient.get('/api/v1/domains'),
 };
+
+// =============================================================================
+// Documents API
+// =============================================================================
+
+export const documentApi = {
+  getSummary: (documentId: string) =>
+    queryClient.get(`/api/v1/documents/${documentId}/summary`),
+};

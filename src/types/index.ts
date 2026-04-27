@@ -67,6 +67,7 @@ export type QuerySource =
   | 'rag'
   | 'multi_llm'
   | 'public_llm'
+  | 'rag_low_confidence'
   | 'knowledge_base';
 
 export interface Citation {
