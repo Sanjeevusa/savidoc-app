@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 import AskSaviDoc from './pages/ask/AskSaviDoc';
@@ -8,10 +9,46 @@ import OTPVerify from './pages/auth/OTPVerify';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ValidationQueue from './pages/sme/ValidationQueue';
+import ConsultSaviDoc from './pages/ask/ConsultSaviDoc';
 
 // Placeholder pages
 function AskPage() {
-  return <AskSaviDoc />;
+  const [mode, setMode] = useState<'ask' | 'consult'>('ask');
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    padding: '10px 0',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: active ? 'var(--accent)' : 'var(--text-muted)',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s',
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{
+        display: 'flex',
+        background: 'var(--bg-card)',
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <button style={tabStyle(mode === 'ask')} onClick={() => setMode('ask')}>
+          Ask
+        </button>
+        <button style={tabStyle(mode === 'consult')} onClick={() => setMode('consult')}>
+          Consult
+        </button>
+      </div>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        {mode === 'ask' ? <AskSaviDoc /> : <ConsultSaviDoc />}
+      </div>
+    </div>
+  );
 }
 function QuizPage() {
   return <div className="p-6 text-gray-500">Quiz — coming soon</div>;

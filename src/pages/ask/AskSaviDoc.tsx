@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { queryApi, userApi, queryClient } from '../../api/client';
 import type { QueryResponse, Submission, SavedQuery, FrequentQuery } from '../../types';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // =============================================================================
 // Helpers
@@ -227,7 +228,7 @@ function MarkdownAnswer({ text }: { text: string }) {
     <>
       <style>{ANSWER_STYLES}</style>
       <div className="savidoc-answer">
-        <ReactMarkdown>{text}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
       </div>
     </>
   );
@@ -480,7 +481,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
                       {r.model && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.model}</span>}
                       <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>▼ expand</span>
                     </summary>
-                    <MarkdownAnswer text={response.answer} />
+                    <MarkdownAnswer text={r.answer} />
                   </details>
                 ))}
               </div>
@@ -906,7 +907,7 @@ function KBCard({ item, canRemove, onRemove, onAskAgain }: {
             </div>
           )}
 
-          <MarkdownAnswer text={response.answer} />
+          <MarkdownAnswer text={item.answer} />
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
             <button onClick={() => onAskAgain(item.question)} style={{ ...btn(false), borderColor: 'var(--accent)', color: 'var(--accent)' }}>
