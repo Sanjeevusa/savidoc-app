@@ -283,7 +283,7 @@ export default function Register() {
         industry: form.industry || undefined,
         industryType: form.industryType || undefined,
       });
-      navigate('/verify-otp', { state: { userId, phone, purpose: 'verify_phone', assignedRole } });
+      navigate('/verify-otp', { state: { userId, email: form.email, purpose: 'verify_email', assignedRole } });
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {

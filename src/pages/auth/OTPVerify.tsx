@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
+type Purpose = 'verify_phone' | 'verify_email' | 'login' | 'reset_password';
+
 export default function OTPVerify() {
   const { verifyOTP, resendOTP } = useAuth();
   const location = useLocation();
@@ -9,8 +11,10 @@ export default function OTPVerify() {
 
   const state = location.state as {
     userId: string;
-    phone: string;
-    purpose: 'verify_phone' | 'login' | 'reset_password';
+    // Either or both may be present, depending on the originating flow
+    email?: string;
+    phone?: string;
+    purpose: Purpose;
     assignedRole?: string;
   } | null;
 
@@ -76,16 +80,38 @@ export default function OTPVerify() {
     } catch { setError('Failed to resend code. Please try again.'); }
   }
 
-  const purposeConfig = {
-    verify_phone:   { title: 'Verify your phone',   subtitle: 'We sent a 6-digit code to confirm your account' },
+  // -- Channel / copy resolution ---------------------------------------------
+
+  // Did this flow target email or phone? Prefer email when present (matches
+  // the registration-via-email and password-reset paths).
+  const channel: 'email' | 'phone' = state?.email ? 'email' : 'phone';
+
+  const purposeConfig: Record<Purpose, { title: string; subtitle: string }> = {
+    verify_email:   { title: 'Verify your email',    subtitle: 'We sent a 6-digit code to confirm your account' },
+    verify_phone:   { title: 'Verify your phone',    subtitle: 'We sent a 6-digit code to confirm your account' },
     login:          { title: '2-step verification',  subtitle: "Enter the code we sent to confirm it's you" },
-    reset_password: { title: 'Reset your password', subtitle: 'Enter the code to proceed with password reset' },
+    reset_password: { title: 'Reset your password',  subtitle: 'Enter the code to proceed with password reset' },
   };
 
   const config = purposeConfig[state?.purpose || 'login'];
-  const maskedPhone = state?.phone
-    ? state.phone.slice(0, -4).replace(/\d/g, '•') + state.phone.slice(-4)
-    : '';
+
+  // Mask the destination — email and phone get masked differently
+  const maskedDestination = (() => {
+    if (state?.email) {
+      // jane.smith@hospital.com -> j••••••••@hospital.com
+      const [local, domain] = state.email.split('@');
+      if (!local || !domain) return state.email;
+      const head = local.slice(0, 1);
+      return `${head}${'•'.repeat(Math.max(local.length - 1, 1))}@${domain}`;
+    }
+    if (state?.phone) {
+      return state.phone.slice(0, -4).replace(/\d/g, '•') + state.phone.slice(-4);
+    }
+    return '';
+  })();
+
+  const icon = channel === 'email' ? '✉️' : '📱';
+  const resendDestinationLabel = channel === 'email' ? 'your email' : 'your phone';
 
   const allFilled = otp.every(d => d !== '');
 
@@ -105,9 +131,9 @@ export default function OTPVerify() {
         {/* Card */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '20px', padding: '32px 28px', boxShadow: 'var(--shadow-md)', textAlign: 'center' }}>
 
-          {/* Icon */}
+          {/* Icon — email or phone depending on channel */}
           <div style={{ width: '56px', height: '56px', background: 'var(--accent-light)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '24px' }}>
-            📱
+            {icon}
           </div>
 
           <h2 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', marginBottom: '6px', letterSpacing: '-0.3px' }}>
@@ -117,7 +143,7 @@ export default function OTPVerify() {
             {config.subtitle}
           </p>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '600', marginBottom: '28px' }}>
-            {maskedPhone}
+            {maskedDestination}
           </p>
 
           {/* OTP inputs */}
@@ -165,7 +191,7 @@ export default function OTPVerify() {
           {/* Resend success */}
           {resendSuccess && (
             <div style={{ background: 'var(--success-light)', borderRadius: '12px', padding: '10px 16px', fontSize: '13px', fontWeight: '500', color: 'var(--success)', marginBottom: '16px' }}>
-              ✅ New code sent to your phone
+              ✅ New code sent to {resendDestinationLabel}
             </div>
           )}
 

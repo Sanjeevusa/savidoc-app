@@ -184,8 +184,12 @@ export const userApi = {
 // =============================================================================
 
 export const metaApi = {
-  getDepartments: () => queryClient.get('/api/v1/departments'),
-  getDomains: () => queryClient.get('/api/v1/domains'),
+  // Public endpoints — no auth header needed. Use apiClient (JWT interceptor
+  // is harmless when no token is present, which is the case during registration).
+  getDepartments: () =>
+    apiClient.get(`/api/v1/meta/departments?tenantId=${TENANT_ID}`),
+  getDomains: () =>
+    apiClient.get(`/api/v1/meta/domains?tenantId=${TENANT_ID}`),
 };
 
 // =============================================================================
