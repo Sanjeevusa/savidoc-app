@@ -100,7 +100,10 @@ export const authApi = {
 // Query API (uses admin key for now — will use user JWT later)
 // =============================================================================
 
-const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || 'sk_admin_98100d8e6eac52325365fcee7824020b73fc79213483149980e7eb649e877d1d';
+const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY;
+if (!ADMIN_KEY) {
+  throw new Error('VITE_ADMIN_KEY environment variable is required. Set it in your .env file.');
+}
 
 export const queryClient = axios.create({
   baseURL: API_BASE,
