@@ -51,8 +51,8 @@ function SourceBadge({ turn }: { turn: ThreadTurn }) {
           {turn.validatedAt && ` · ${new Date(turn.validatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
         </span>
       )}
-      {!isValidated && isRAG && turn.confidence != null && turn.confidence < 0.7 && (
-        <span style={badge('var(--warning-light)', 'var(--warning)')}>⚠️ Low confidence</span>
+      {!isValidated && isRAG && turn.grounding === 'thin' && (
+        <span style={badge('var(--warning-light)', 'var(--warning)')}>⚠️ Limited sources</span>
       )}
     </div>
   );

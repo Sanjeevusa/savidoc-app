@@ -14,6 +14,8 @@ export interface ThreadTurn {
   approvedByName?: string | null;
   validatedAt?: string | null;
   confidence?: number | null;
+  grounding?: 'strong' | 'moderate' | 'thin' | null;
+  caution?: string | null;
   citations?: Array<{ documentId?: string; documentName?: string; relevanceScore?: number }>;
   resolvedQuery?: string;
   queryWasRewritten?: boolean;
@@ -101,6 +103,8 @@ export function useThread(opts: UseThreadOptions) {
         approvedByName: data.approvedByName,
         validatedAt: data.validatedAt,
         confidence: data.confidence,
+        grounding: data.metadata?.grounding,
+        caution: data.metadata?.caution,
         citations: data.citations || [],
         resolvedQuery: data.resolvedQuery,
         queryWasRewritten: !!data.metadata?.queryRewritten,

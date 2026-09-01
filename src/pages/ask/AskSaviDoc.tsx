@@ -438,7 +438,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
   const isLLM = response.source === 'multi_llm' || response.source === 'public_llm';
   const isValidated = response.source === 'validated' || response.source === 'validated_cache';
   const isKB = response.source === 'rag' || response.source === 'knowledge_base' || response.source === 'rag_low_confidence';
-  const isLowConfidence = isKB && response.confidence && response.confidence < 0.7;
+  const isLowConfidence = isKB && response.metadata?.grounding === 'thin';
 
   const [composedAnswer, setComposedAnswer] = useState(isLLM ? '' : response.answer || '');
   const [reviewComment, setReviewComment] = useState('');
@@ -463,7 +463,7 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
           source={response.source}
           approvedByName={response.approvedByName}
           validatedAt={response.validatedAt}
-          confidence={response.confidence}
+          grounding={response.metadata?.grounding}
         />
 
         {/* ── LLM path ─────────────────────────────────── */}

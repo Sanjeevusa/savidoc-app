@@ -414,7 +414,7 @@ interface SourceBadgeProps {
   source: string;
   approvedByName?: string | null;
   validatedAt?: string | null;
-  confidence?: number | null;
+  grounding?: 'strong' | 'moderate' | 'thin' | null;
 }
 
 export function SourceBadge({ source, approvedByName, validatedAt, confidence }: SourceBadgeProps) {
@@ -432,8 +432,8 @@ export function SourceBadge({ source, approvedByName, validatedAt, confidence }:
     <div className="mb-3">
       <div className="flex items-center gap-2 flex-wrap">
         <Badge variant={config.variant}>{config.label}</Badge>
-        {!isValidated && !isLLM && confidence && confidence < 0.7 && (
-          <Badge variant="amber">⚠️ Low confidence</Badge>
+        {!isValidated && !isLLM && grounding === 'thin' && (
+          <Badge variant="amber">⚠️ Limited sources</Badge>
         )}
       </div>
       {isValidated && approvedByName && (
