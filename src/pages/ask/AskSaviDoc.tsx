@@ -141,8 +141,6 @@ function Citations({ citations }: { citations: Array<{ documentId?: string; docu
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {Array.from(docGroups.entries()).map(([name, { sourceNums, maxScore, documentId }]) => {
-            const score = Math.round(maxScore * 100);
-            const scoreColor = score >= 80 ? '#16a34a' : score >= 65 ? '#ca8a04' : '#6b7280';
             return (
               <div key={name} style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
@@ -185,9 +183,7 @@ function Citations({ citations }: { citations: Array<{ documentId?: string; docu
                 >
                   📄 {friendlyName(name)}
                 </button>
-                <span style={{ fontSize: '10px', fontWeight: '700', color: scoreColor, flexShrink: 0 }}>
-                  {score}%
-                </span>
+                
               </div>
             );
           })}

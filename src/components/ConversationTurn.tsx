@@ -97,8 +97,7 @@ function CompactCitations({ citations }: { citations: ThreadTurn['citations'] })
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
         {Array.from(docGroups.entries()).map(([name, { sourceNums, maxScore }]) => {
-          const score = Math.round(maxScore * 100);
-          const scoreColor = score >= 80 ? '#16a34a' : score >= 65 ? '#ca8a04' : '#6b7280';
+          
           return (
             <div key={name} style={{
               display: 'flex', alignItems: 'center', gap: '8px',
@@ -128,7 +127,6 @@ function CompactCitations({ citations }: { citations: ThreadTurn['citations'] })
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 📄 {friendlyName(name)}
               </span>
-              <span style={{ fontWeight: 700, color: scoreColor, flexShrink: 0 }}>{score}%</span>
             </div>
           );
         })}
