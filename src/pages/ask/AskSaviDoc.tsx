@@ -558,10 +558,15 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
         {/* ── KB / RAG path ─────────────────────────────── */}
         {isKB && (
           <>
-            {isLowConfidence && (
+            {response.metadata?.caution && (
               <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning)', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px' }}>
                 <p style={{ fontSize: '13px', color: 'var(--warning)', margin: 0 }}>
-                  ⚠️ Low confidence match — this answer may be incomplete. Consider sending for expert review.
+                  ⚠️ {response.metadata.caution}
+                  {response.metadata.gapNote && (
+                    <span style={{ display: 'block', marginTop: '4px', opacity: 0.85 }}>
+                      {response.metadata.gapNote}
+                    </span>
+                  )}
                 </p>
               </div>
             )}
