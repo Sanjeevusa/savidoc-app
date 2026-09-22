@@ -109,17 +109,18 @@ function SourceBadge({ source, approvedByName, validatedAt, confidence }: {
 // Citation Badges
 // =============================================================================
 
-function Citations({ citations }: { citations: Array<{ documentId?: string; documentName?: string; relevanceScore?: number }> }) {
+function Citations({ citations }: { citations: Array<{ documentId?: string; documentName?: string; page?: number; relevanceScore?: number }> }) {
   if (!citations?.length) return null;
   const [modalDoc, setModalDoc] = useState<{ id: string; name: string } | null>(null);
 
-  const docGroups = new Map<string, { sourceNums: number[]; maxScore: number; documentId: string }>();
+  const docGroups = new Map<string, {
+    sources: Array<{ num: number; page?: number }>;
+    documentId: string;
+  }>();
   citations.forEach((c, i) => {
     const name = c.documentName || 'Document';
-    if (!docGroups.has(name)) docGroups.set(name, { sourceNums: [], maxScore: 0, documentId: c.documentId || '' });
-    const group = docGroups.get(name)!;
-    group.sourceNums.push(i + 1);
-    group.maxScore = Math.max(group.maxScore, c.relevanceScore || 0);
+    if (!docGroups.has(name)) docGroups.set(name, { sources: [], documentId: c.documentId || '' });
+    docGroups.get(name)!.sources.push({ num: i + 1, page: c.page });
   });
 
   const friendlyName = (filename: string) =>
@@ -140,7 +141,7 @@ function Citations({ citations }: { citations: Array<{ documentId?: string; docu
           Referenced Sources
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {Array.from(docGroups.entries()).map(([name, { sourceNums, maxScore, documentId }]) => {
+          {Array.from(docGroups.entries()).map(([name, { sources, documentId }]) => {
             return (
               <div key={name} style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
@@ -149,22 +150,29 @@ function Citations({ citations }: { citations: Array<{ documentId?: string; docu
                 borderRadius: '8px',
                 border: '1px solid var(--border)',
               }}>
-                <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                  {sourceNums.slice(0, 5).map(n => (
-                    <span key={n} style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      width: '18px', height: '18px',
-                      background: 'var(--accent)', color: 'white',
-                      borderRadius: '4px', fontSize: '9px', fontWeight: '800',
-                    }}>{n}</span>
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  {sources.slice(0, 5).map(({ num, page }) => (
+                    <div key={num} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: '18px', height: '18px',
+                        background: 'var(--accent)', color: 'white',
+                        borderRadius: '4px', fontSize: '9px', fontWeight: '800',
+                      }}>{num}</span>
+                      {page != null && (
+                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', lineHeight: 1 }}>
+                          p.{page}
+                        </span>
+                      )}
+                    </div>
                   ))}
-                  {sourceNums.length > 5 && (
+                  {sources.length > 5 && (
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       width: '18px', height: '18px',
                       background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
                       borderRadius: '4px', fontSize: '9px', fontWeight: '700',
-                    }}>+{sourceNums.length - 5}</span>
+                    }}>+{sources.length - 5}</span>
                   )}
                 </div>
                 <button
@@ -183,7 +191,6 @@ function Citations({ citations }: { citations: Array<{ documentId?: string; docu
                 >
                   📄 {friendlyName(name)}
                 </button>
-                
               </div>
             );
           })}
