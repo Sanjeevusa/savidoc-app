@@ -1042,11 +1042,18 @@ export default function AskSaviDoc() {
     try {
       const res = await queryApi.ask(q);
       const data = res.data.data || res.data;
-      console.log('response metadata:', data?.metadata);
+
+      // The client sends domain: '' and lets the API key resolve it, so the
+      // response's own domain is empty. The domain that actually answered is
+      // the one on the retrieved chunks — which is the better signal anyway,
+      // since it reports what was used rather than what was searched.
+      const answeredDomain = data.metadata?.retrieved?.[0]?.domain;
+
+      console.log('followup args:', answeredDomain, data.metadata?.gapNote);
       setResponse(data);
-      // Load followups for KB and validated responses
+
       if (data.source !== 'multi_llm' && data.source !== 'public_llm') {
-        loadFollowups(q, data.answer);
+        loadFollowups(q, data.answer, answeredDomain, data.metadata?.gapNote ?? data.gaps);
       }
     } catch (err) { console.error('Ask error:', err); }
     finally { setAsking(false); }
@@ -1101,9 +1108,9 @@ export default function AskSaviDoc() {
     try { await userApi.withdrawSubmission(id); await loadSubmissions(); } catch {}
   }
 
-  async function loadFollowups(question: string, answer: string) {
+  async function loadFollowups(question: string, answer: string, domain?: string, gaps?: string) {
     try {
-      const res = await queryApi.generateFollowups(question, answer);
+      const res = await queryApi.generateFollowups(question, answer, domain, gaps);
       setFollowups(res.data.suggestions || []);
     } catch { setFollowups([]); }
   }

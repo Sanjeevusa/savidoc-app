@@ -138,8 +138,13 @@ export const queryApi = {
       departmentId: user.departmentId,
     }),
 
-  generateFollowups: (question: string, answer: string) =>
-    queryClient.post('/api/v1/followups', { question, answer: answer.slice(0, 400) }),
+  generateFollowups: (question: string, answer: string, domain?: string, gaps?: string) =>
+    queryClient.post('/api/v1/followups', {
+      question,
+      answer: answer.slice(0, 400),
+      domain,
+      gaps,
+    }),
 };
 
 // =============================================================================
