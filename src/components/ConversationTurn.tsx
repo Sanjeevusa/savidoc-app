@@ -34,7 +34,7 @@ function SourceBadge({ turn }: { turn: ThreadTurn }) {
   if (!turn.source) return null;
 
   const isValidated = turn.source === 'validated' || turn.source === 'validated_cache';
-  const isRAG = turn.source === 'rag' || turn.source === 'knowledge_base';
+  const isRAG = turn.source === 'rag' || turn.source === 'knowledge_base' || turn.source === 'needs_clarification';
 
   const config = isValidated
     ? { label: '✅ Expert Validated', bg: 'var(--success-light)', color: 'var(--success)' }

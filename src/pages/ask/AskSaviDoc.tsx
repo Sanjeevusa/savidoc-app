@@ -79,7 +79,7 @@ function SourceBadge({ source, approvedByName, validatedAt, confidence }: {
   confidence?: number | null;
 }) {
   const isValidated = source === 'validated' || source === 'validated_cache';
-  const isRAG = source === 'rag' || source === 'knowledge_base';
+  const isRAG = source === 'rag' || source === 'knowledge_base' || source === 'needs_clarification';
 
   const config = isValidated
     ? { label: '✅ Expert Validated', bg: 'var(--success-light)', color: 'var(--success)' }
@@ -440,7 +440,8 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
 }) {
   const isLLM = response.source === 'multi_llm' || response.source === 'public_llm';
   const isValidated = response.source === 'validated' || response.source === 'validated_cache';
-  const isKB = response.source === 'rag' || response.source === 'knowledge_base' || response.source === 'rag_low_confidence';
+  const isKB = response.source === 'rag' || response.source === 'knowledge_base'
+      || response.source === 'rag_low_confidence' || response.source === 'needs_clarification';
   const isLowConfidence = isKB && response.metadata?.grounding === 'thin';
 
   const [composedAnswer, setComposedAnswer] = useState(isLLM ? '' : response.answer || '');

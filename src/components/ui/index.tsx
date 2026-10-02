@@ -419,7 +419,7 @@ interface SourceBadgeProps {
 
 export function SourceBadge({ source, approvedByName, validatedAt, confidence }: SourceBadgeProps) {
   const isValidated = source === 'validated' || source === 'validated_cache';
-  const isRAG = source === 'rag' || source === 'knowledge_base';
+  const isRAG = source === 'rag' || source === 'knowledge_base' || source === 'needs_clarification';
   const isLLM = source === 'multi_llm' || source === 'public_llm';
 
   const config = isValidated
