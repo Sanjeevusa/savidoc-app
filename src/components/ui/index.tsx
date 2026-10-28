@@ -422,10 +422,15 @@ export function SourceBadge({ source, approvedByName, validatedAt, confidence }:
   const isRAG = source === 'rag' || source === 'knowledge_base' || source === 'needs_clarification';
   const isLLM = source === 'multi_llm' || source === 'public_llm';
 
+  // not_in_corpus: the documents were searched and do not answer. It is not
+  // an AI response and must not be labelled as one.
+  const isNotFound = source === 'not_in_corpus';
   const config = isValidated
     ? { label: '✅ Expert Validated', variant: 'green' as const }
     : isRAG
     ? { label: '📄 Knowledge Base', variant: 'blue' as const }
+    : isNotFound
+    ? { label: '🔍 Not found in knowledge base', variant: 'amber' as const }
     : { label: '🌐 AI Response', variant: 'purple' as const };
 
   return (

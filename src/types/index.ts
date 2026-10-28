@@ -68,7 +68,9 @@ export type QuerySource =
   | 'multi_llm'
   | 'public_llm'
   | 'rag_low_confidence'
-  | 'knowledge_base';
+  | 'knowledge_base'
+  | 'needs_clarification'
+  | 'not_in_corpus';
 
 export interface Citation {
   documentId: string;

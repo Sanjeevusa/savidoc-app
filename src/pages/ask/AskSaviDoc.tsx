@@ -81,10 +81,13 @@ function SourceBadge({ source, approvedByName, validatedAt, confidence }: {
   const isValidated = source === 'validated' || source === 'validated_cache';
   const isRAG = source === 'rag' || source === 'knowledge_base' || source === 'needs_clarification';
 
+  const isNotFound = source === 'not_in_corpus';
   const config = isValidated
     ? { label: '✅ Expert Validated', bg: 'var(--success-light)', color: 'var(--success)' }
     : isRAG
     ? { label: '📄 Knowledge Base', bg: 'var(--info-light)', color: 'var(--info)' }
+    : isNotFound
+    ? { label: '🔍 Not found in knowledge base', bg: 'var(--bg-secondary)', color: 'var(--text-secondary)' }
     : { label: '🌐 AI Response', bg: 'var(--warning-light)', color: 'var(--warning)' };
 
   return (
@@ -469,6 +472,11 @@ function AnswerCard({ question, response, onSave, onDismiss, onSendForReview, on
           validatedAt={response.validatedAt}
           grounding={response.metadata?.grounding}
         />
+        
+        {/* ── Not in corpus: the pipeline's own message, nothing to review ── */}
+        {response.source === 'not_in_corpus' && (
+          <MarkdownAnswer text={response.answer} />
+        )}
 
         {/* ── LLM path ─────────────────────────────────── */}
         {isLLM && (

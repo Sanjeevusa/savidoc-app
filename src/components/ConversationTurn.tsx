@@ -36,10 +36,13 @@ function SourceBadge({ turn }: { turn: ThreadTurn }) {
   const isValidated = turn.source === 'validated' || turn.source === 'validated_cache';
   const isRAG = turn.source === 'rag' || turn.source === 'knowledge_base' || turn.source === 'needs_clarification';
 
+  const isNotFound = turn.source === 'not_in_corpus';
   const config = isValidated
     ? { label: '✅ Expert Validated', bg: 'var(--success-light)', color: 'var(--success)' }
     : isRAG
     ? { label: '📄 Knowledge Base', bg: 'var(--info-light)', color: 'var(--info)' }
+    : isNotFound
+    ? { label: '🔍 Not found in knowledge base', bg: 'var(--bg-secondary)', color: 'var(--text-secondary)' }
     : { label: '🌐 AI Response', bg: 'var(--warning-light)', color: 'var(--warning)' };
 
   return (
